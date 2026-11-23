@@ -5,3 +5,5 @@
 .claude-flow/data/
 .claude-flow/logs/
 .claude-flow/sessions/
+.swarm/*.db
+.swarm/*.ruvector
