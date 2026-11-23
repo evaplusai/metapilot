@@ -15,3 +15,4 @@
 .claude-flow/daemon-state.json
 .claude-flow/swarm/
 .claude-flow/metrics/
+.swarm/ewc-fisher.json
