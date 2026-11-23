@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Copilot Harness Tutorial</title>
+<meta name="description" content="Step-by-step: build metapilot, scaffold a GitHub Copilot agent harness, verify it, connect it to VS Code and let it evolve.">
+<style>
+:root{
+  --bg:#f7f7f5;--surface:#ffffff;--surface-2:#f0efec;--text:#1d1d1b;--muted:#5f5e5a;
+  --border:#e2e0db;--accent:#5b4bd6;--accent-soft:#ecebfb;--ok:#1f7a4d;--ok-soft:#e6f4ec;
+  --warn:#8a5a00;--warn-soft:#fbf1dc;--code-bg:#1e1e24;--code-text:#e8e6f0;--code-dim:#9d9ab0;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#141416;--surface:#1c1c20;--surface-2:#24242a;--text:#ecebe8;--muted:#a4a29c;
+  --border:#33333a;--accent:#a497ff;--accent-soft:#2a2740;--ok:#5fd19a;--ok-soft:#183126;
+  --warn:#f0c062;--warn-soft:#33290f;--code-bg:#0e0e11;--code-text:#e8e6f0;--code-dim:#8a879c;}}
+:root[data-theme="dark"]{
+  --bg:#141416;--surface:#1c1c20;--surface-2:#24242a;--text:#ecebe8;--muted:#a4a29c;
+  --border:#33333a;--accent:#a497ff;--accent-soft:#2a2740;--ok:#5fd19a;--ok-soft:#183126;
+  --warn:#f0c062;--warn-soft:#33290f;--code-bg:#0e0e11;--code-text:#e8e6f0;--code-dim:#8a879c;}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:860px;margin:0 auto;padding:40px 16px 80px}
+header h1{font-size:2rem;line-height:1.2;margin:0 0 8px}
+header p{color:var(--muted);margin:0 0 4px}
+.meta{font-size:.85rem;color:var(--muted)}
+nav.toc{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 20px;margin:28px 0}
+nav.toc strong{display:block;margin-bottom:6px}
+nav.toc ol{margin:0;padding-left:22px;columns:2;column-gap:28px}
+nav.toc a{color:var(--accent);text-decoration:none}
+nav.toc a:hover{text-decoration:underline}
+@media (max-width:600px){nav.toc ol{columns:1}}
+section.step{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px 22px;margin:18px 0;scroll-margin-top:16px}
+section.step h2{display:flex;align-items:center;gap:12px;font-size:1.25rem;margin:0 0 10px}
+.num{flex:none;width:32px;height:32px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font-size:.95rem;font-weight:700}
+h3{font-size:1rem;margin:18px 0 6px}
+p{margin:8px 0}
+code{font:0.9em ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:var(--surface-2);padding:1px 5px;border-radius:4px}
+.cmd{position:relative;margin:10px 0}
+.cmd pre{margin:0;background:var(--code-bg);color:var(--code-text);padding:14px 16px;padding-right:72px;border-radius:8px;overflow-x:auto;font:13.5px/1.55 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.cmd pre .c{color:var(--code-dim)}
+.cmd button{position:absolute;top:8px;right:8px;background:#ffffff1a;color:var(--code-text);border:1px solid #ffffff2e;border-radius:6px;font-size:12px;padding:4px 9px;cursor:pointer}
+.cmd button:hover{background:#ffffff33}
+pre.out{margin:8px 0;background:var(--surface-2);color:var(--text);padding:12px 14px;border-radius:8px;overflow-x:auto;font:12.5px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;border-left:3px solid var(--ok)}
+.label{font-size:.75rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-top:12px}
+.note,.warn,.ok{border-radius:8px;padding:10px 14px;margin:12px 0;font-size:.95rem}
+.note{background:var(--accent-soft)}
+.warn{background:var(--warn-soft);color:var(--text);border-left:3px solid var(--warn)}
+.ok{background:var(--ok-soft);border-left:3px solid var(--ok)}
+.table-wrap{overflow-x:auto;margin:10px 0}
+table{border-collapse:collapse;width:100%;font-size:.92rem}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--border);vertical-align:top}
+th{color:var(--muted);font-weight:600}
+ul,ol{padding-left:22px}
+footer{color:var(--muted);font-size:.85rem;margin-top:36px;border-top:1px solid var(--border);padding-top:16px}
+a{color:var(--accent)}
+.theme-btn{float:right;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:4px 10px;cursor:pointer;font-size:.85rem}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <button class="theme-btn" id="themeBtn" type="button">Toggle theme</button>
+  <h1>Build your own GitHub Copilot agent harness</h1>
+  <p>A step-by-step tutorial for <strong>metapilot</strong>: the Copilot-only slim copy of
+  <a href="https://github.com/ruvnet/metaharness">ruvnet/metaharness</a>.</p>
+  <p class="meta">Every command here was run and its output checked on 2026-11-23. For coding agents, see
+  <a href="copilot-harness-agent-guide.md">copilot-harness-agent-guide.md</a>.</p>
+</header>
+
+<nav class="toc">
+  <strong>Steps</strong>
+  <ol>
+    <li><a href="#s1">What you are building</a></li>
+    <li><a href="#s2">Before you start</a></li>
+    <li><a href="#s3">Build metapilot</a></li>
+    <li><a href="#s4">Look around the CLI</a></li>
+    <li><a href="#s5">Size up a repo (optional)</a></li>
+    <li><a href="#s6">Create your harness</a></li>
+    <li><a href="#s7">Install and check it</a></li>
+    <li><a href="#s8">Connect it to Copilot</a></li>
+    <li><a href="#s9">Run the safety checks</a></li>
+    <li><a href="#s10">Make it yours</a></li>
+    <li><a href="#s11">Let it improve itself</a></li>
+    <li><a href="#s12">Use the local packages</a></li>
+    <li><a href="#s13">Use it from ruflo</a></li>
+    <li><a href="#s14">Troubleshooting</a></li>
+  </ol>
+</nav>
+
+<section class="step" id="s1">
+  <h2><span class="num">1</span>What you are building</h2>
+  <p>An <strong>agent harness</strong> is a small, owned wrapper around an AI model. It gives the model a name, rules,
+  agent personas, skills, and a set of tools it is allowed to use. Underneath, you still talk to whatever model Copilot uses.
+  The harness adds knowledge of your project and a safety net.</p>
+  <p>metapilot keeps only what you need for <strong>GitHub Copilot in VS Code</strong>:</p>
+  <div class="table-wrap"><table>
+    <tr><th>Folder</th><th>What it does</th></tr>
+    <tr><td><code>packages/create-agent-harness</code></td><td>The <code>metaharness</code> and <code>harness</code> command-line tools.</td></tr>
+    <tr><td><code>packages/kernel-js</code></td><td>The kernel. It runs as WebAssembly (<code>.wasm</code>), already built and taken from npm.</td></tr>
+    <tr><td><code>packages/host-copilot</code></td><td>Writes the files Copilot reads: <code>.vscode/mcp.json</code> and <code>.github/copilot-instructions.md</code>.</td></tr>
+    <tr><td><code>packages/horizon</code></td><td>Long-horizon planner, also prebuilt WebAssembly.</td></tr>
+    <tr><td><code>docs/adrs</code></td><td>The design decisions. The Copilot design is <code>ADR-032</code>.</td></tr>
+  </table></div>
+  <div class="note">You never compile Rust here. The WebAssembly files are already inside the repo, exactly as published on npm.</div>
+</section>
+
+<section class="step" id="s2">
+  <h2><span class="num">2</span>Before you start</h2>
+  <ul>
+    <li><strong>Node.js 20 or newer</strong> and npm. Check with <code>node -v</code>.</li>
+    <li><strong>VS Code 1.99 or newer</strong> with the <strong>GitHub Copilot Chat</strong> extension (needed from step 8).</li>
+    <li>Internet access to the npm registry.</li>
+  </ul>
+</section>
+
+<section class="step" id="s3">
+  <h2><span class="num">3</span>Build metapilot</h2>
+  <p>Clone the repo, install, build and test. This also makes the <code>metaharness</code> and <code>harness</code> commands available through <code>npx</code>.</p>
+  <div class="cmd"><pre>git clone https://github.com/evaplusai/metapilot.git
+cd metapilot</pre></div>
+  <div class="cmd"><pre>npm ci</pre></div>
+  <div class="cmd"><pre>npm run build</pre></div>
+  <div class="cmd"><pre>npm test</pre></div>
+  <div class="ok">Success looks like about 1,200 tests passing, a few skipped and <strong>0 failed</strong>.</div>
+</section>
+
+<section class="step" id="s4">
+  <h2><span class="num">4</span>Look around the CLI</h2>
+  <div class="cmd"><pre>npx metaharness --help</pre></div>
+  <p>The last line should say <code>Hosts: copilot</code>. That is the only host in this copy.</p>
+  <div class="cmd"><pre>npx metaharness --list</pre></div>
+  <p>This shows 20 templates. Start with <code>minimal</code> to learn, or pick a vertical such as
+  <code>vertical:coding</code>, <code>vertical:support</code>, <code>vertical:devops</code> or <code>vertical:repo-maintainer</code>.</p>
+</section>
+
+<section class="step" id="s5">
+  <h2><span class="num">5</span>Size up a repo (optional)</h2>
+  <p>Before you build a harness for an existing project, ask metaharness how well it fits. These commands only
+  <em>read</em> the repo and never run its code.</p>
+  <div class="cmd"><pre>npx metaharness score ../my-project</pre></div>
+  <pre class="out">Harness fit:        67/100
+Compile confidence: 90/100
+Task coverage:      98/100
+Tool safety:        95/100
+Memory usefulness:  38/100
+Est. cost per run:  $0.048
+Recommended mode:   CLI + MCP  (template vertical:coding)
+Constraints:        6/6 hard ✓ scaffold-ready</pre>
+  <div class="cmd"><pre>npx metaharness analyze ../my-project</pre></div>
+  <p>This suggests agents and commands. It writes <code>repo-profile.json</code> and <code>harness-plan.json</code> into that folder.</p>
+  <div class="cmd"><pre>npx metaharness genome ../my-project</pre></div>
+  <p>This gives a 7-part readiness report: repo type, suggested agents, risk, MCP surface, tests and publish readiness.</p>
+</section>
+
+<section class="step" id="s6">
+  <h2><span class="num">6</span>Create your harness</h2>
+  <p>Pick a name and a template. <code>--target</code> puts the new harness next to metapilot, not inside it.</p>
+  <div class="cmd"><pre>npx metaharness my-bot --host copilot --template vertical:coding \
+  --description "Coding helper for my project" --target ../my-bot</pre></div>
+  <pre class="out">Scaffolded my-bot into /…/my-bot
+Files: 24
+Manifest: /…/my-bot/.harness/manifest.json</pre>
+  <h3>What you got</h3>
+  <div class="table-wrap"><table>
+    <tr><th>File</th><th>Why it matters</th></tr>
+    <tr><td><code>.vscode/mcp.json</code></td><td>Tells Copilot how to start your harness's tool server.</td></tr>
+    <tr><td><code>.github/copilot-instructions.md</code></td><td>Rules Copilot always follows in this folder.</td></tr>
+    <tr><td><code>.harness/mcp-policy.json</code></td><td>The safety net: deny by default, no network, no shell, no file writes.</td></tr>
+    <tr><td><code>bin/cli.js</code>, <code>bin/mcp.js</code></td><td>Your CLI (<code>init</code>, <code>doctor</code>, <code>mcp start</code>) and tool server.</td></tr>
+    <tr><td><code>src/agents/*.ts</code></td><td>Agent personas: architect, implementer, reviewer, test-writer.</td></tr>
+    <tr><td><code>.claude/skills</code>, <code>.claude/commands</code></td><td>Skills such as <code>plan-change</code> and <code>evolve</code>, and commands such as <code>review-diff</code>.</td></tr>
+    <tr><td><code>install.md</code></td><td>A short install guide for whoever receives the harness.</td></tr>
+  </table></div>
+  <p>Useful extra flags: <code>--no-darwin</code> (skip self-improvement), <code>--sessions</code> (crash-safe session log),
+  <code>--force</code> (overwrite), <code>--wizard</code> (choose interactively).</p>
+</section>
+
+<section class="step" id="s7">
+  <h2><span class="num">7</span>Install and check it</h2>
+  <div class="cmd"><pre>cd ../my-bot
+npm install</pre></div>
+  <div class="cmd"><pre>npm run doctor</pre></div>
+  <pre class="out">PASS kernel loads
+PASS kernel reports a version
+PASS kernel backend is native|wasm|js
+PASS host adapter has a name
+
+my-bot: all checks passed (kernel 0.1.0, wasm backend, host copilot)</pre>
+  <div class="cmd"><pre>npm test</pre></div>
+  <pre class="out">Tests  4 passed (4)</pre>
+  <h3>Talk to the tool server directly</h3>
+  <p>You can check the tool server before opening VS Code. This sends three MCP messages over stdin:</p>
+  <div class="cmd"><pre>printf '%s\n' \
+ '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","clientInfo":{"name":"t","version":"1"},"capabilities":{}}}' \
+ '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' \
+ '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"harness_info","arguments":{}}}' \
+ | timeout 5 node bin/cli.js mcp start</pre></div>
+  <p>You should see three replies. The last one contains your harness name, version and description.</p>
+</section>
+
+<section class="step" id="s8">
+  <h2><span class="num">8</span>Connect it to Copilot</h2>
+  <ol>
+    <li>Open the <code>my-bot</code> folder in VS Code and click <strong>Trust</strong> when asked. VS Code ignores <code>.vscode/mcp.json</code> in untrusted folders.</li>
+    <li>Open <strong>Copilot Chat</strong> and switch the mode to <strong>Agent</strong>.</li>
+    <li>Click the <strong>tools</strong> icon. You should see the <code>my-bot</code> server with the <code>harness_info</code> tool.
+      If it is missing, run <strong>MCP: List Servers</strong> from the command palette and start <code>my-bot</code>.</li>
+    <li>Ask: <em>"Use harness_info to tell me about this harness."</em> Copilot asks for permission, calls the tool and answers with your harness details.</li>
+  </ol>
+  <div class="ok">Copilot is now using your harness, following its rules and calling its tools.</div>
+</section>
+
+<section class="step" id="s9">
+  <h2><span class="num">9</span>Run the safety checks</h2>
+  <p>Go back to the metapilot folder. Each <code>harness</code> command takes the path of your harness.</p>
+  <div class="cmd"><pre>npx harness doctor ../my-bot</pre></div>
+  <p>Checks structure, manifest hash and kernel version. Expected: <code>Result: HEALTHY</code>.</p>
+  <div class="cmd"><pre>npx harness mcp-scan ../my-bot</pre></div>
+  <p>Security-scans the tool surface. A new harness shows <code>MEDIUM</code> with two findings (see the table below).</p>
+  <div class="cmd"><pre>npx harness diag ../my-bot</pre></div>
+  <p>Checks the kernel version. Expected: <code>PASS kernel versions match exactly</code>.</p>
+  <div class="cmd"><pre>npx harness score ../my-bot</pre></div>
+  <p>Gives a scorecard and grade. A new harness gets <code>Verdict: A</code>.</p>
+  <div class="cmd"><pre>npx harness validate ../my-bot</pre></div>
+  <p>Runs all the checks together before you publish.</p>
+  <h3>Warnings you will see, and what they mean</h3>
+  <div class="table-wrap"><table>
+    <tr><th>Message</th><th>Meaning</th></tr>
+    <tr><td><code>.claude-plugin/plugin.json absent</code></td><td>Only matters for Claude Code plugins. Safe to ignore for Copilot.</td></tr>
+    <tr><td><code>Secrets not denied</code></td><td>Nothing explicitly blocks reading <code>.env</code> files. Add that rule before you give the harness any file-read tools.</td></tr>
+    <tr><td><code>unpinned dependency range(s)</code></td><td><code>^0.1.0</code>-style versions. Pin exact versions before publishing.</td></tr>
+    <tr><td><code>FAIL secrets — no active gcloud project</code></td><td>A Google Cloud secret check. Expected unless you use GCP.</td></tr>
+    <tr><td><code>native unavailable</code></td><td>Normal. This repo runs the kernel as WebAssembly.</td></tr>
+  </table></div>
+</section>
+
+<section class="step" id="s10">
+  <h2><span class="num">10</span>Make it yours</h2>
+  <ul>
+    <li><strong>Behaviour:</strong> edit <code>.github/copilot-instructions.md</code>. This file has the biggest effect on Copilot.</li>
+    <li><strong>Personas:</strong> edit the prompts in <code>src/agents/*.ts</code>.</li>
+    <li><strong>Tools:</strong> add tools to <code>bin/mcp.js</code>. Keep them read-only unless you really need more.</li>
+    <li><strong>Permissions:</strong> <code>.harness/mcp-policy.json</code> denies everything by default. Only loosen it on purpose, then run <code>mcp-scan</code> again.</li>
+  </ul>
+  <p>After each change:</p>
+  <div class="cmd"><pre>npm test && npm run doctor</pre></div>
+  <div class="warn">Don't hand-edit <code>.harness/manifest.json</code>. To get template updates, run
+  <code>npx harness upgrade ../my-bot</code> to see the drift plan, then add <code>--apply</code>.</div>
+</section>
+
+<section class="step" id="s11">
+  <h2><span class="num">11</span>Let it improve itself (Darwin Mode)</h2>
+  <p>Every harness comes with Darwin Mode. It proposes small changes to the harness config, tests each one in a sandbox and keeps
+  only the ones that measurably help. The model stays the same. It needs no network and no API key.</p>
+  <div class="cmd"><pre>npm run evolve:dry</pre></div>
+  <pre class="out">Winner: g2_v5
+Lineage: baseline → g1_v0 → g2_v5
+Delta over baseline: +0.110
+Artifacts: …/my-bot/.metaharness</pre>
+  <p>When the dry run looks sensible, run the real sandbox (3 generations, 4 children each):</p>
+  <div class="cmd"><pre>npm run evolve</pre></div>
+  <p>Read the results in <code>.metaharness/</code> before you keep a change. Design notes: <code>docs/adrs/ADR-070</code> to <code>ADR-076</code>.</p>
+</section>
+
+<section class="step" id="s12">
+  <h2><span class="num">12</span>Use the local packages instead of npm (optional)</h2>
+  <p>By default your harness downloads <code>@metaharness/kernel</code> and <code>@metaharness/host-copilot</code> from npm.
+  To use the code in metapilot instead, run <code>npm run build</code> in metapilot, then change <code>my-bot/package.json</code>:</p>
+  <div class="cmd"><pre>"dependencies": {
+  "@metaharness/kernel": "file:/ABS/PATH/metapilot/packages/kernel-js",
+  "@metaharness/host-copilot": "file:/ABS/PATH/metapilot/packages/host-copilot"
+},
+"overrides": { "@metaharness/kernel": "file:/ABS/PATH/metapilot/packages/kernel-js" }</pre></div>
+  <p>Then run <code>npm install</code> and <code>npm run doctor</code> again. It should still say <code>wasm backend</code>.</p>
+</section>
+
+<section class="step" id="s13">
+  <h2><span class="num">13</span>Use it from ruflo</h2>
+  <p>metapilot is also set up with ruflo. Its MCP server has tools that call the same metaharness commands and return structured data:</p>
+  <div class="table-wrap"><table>
+    <tr><th>ruflo tool</th><th>Does the same as</th></tr>
+    <tr><td><code>metaharness_score</code></td><td><code>npx metaharness score</code></td></tr>
+    <tr><td><code>metaharness_genome</code></td><td><code>npx metaharness genome</code>. On metapilot itself it says <em>ready</em>, with risk 0.275 and a local default-deny MCP surface.</td></tr>
+    <tr><td><code>metaharness_mcp_scan</code></td><td><code>npx harness mcp-scan</code></td></tr>
+    <tr><td><code>metaharness_evolve</code></td><td>Darwin Mode. It only proposes; you decide what to keep.</td></tr>
+  </table></div>
+  <p>In Claude Code, ask for example: <em>"Use ruflo metaharness_score on ../my-bot"</em>.</p>
+</section>
+
+<section class="step" id="s14">
+  <h2><span class="num">14</span>Troubleshooting</h2>
+  <div class="table-wrap"><table>
+    <tr><th>Problem</th><th>Fix</th></tr>
+    <tr><td>Copilot doesn't list the tools</td><td>Trust the folder, switch to <strong>Agent</strong> mode, run <strong>MCP: List Servers</strong> and start <code>my-bot</code>. VS Code must be 1.99 or newer.</td></tr>
+    <tr><td><code>npm run doctor</code> fails at "kernel loads"</td><td>Run <code>npm install</code> again in the harness. With local packages (step 12), run <code>npm run build</code> in metapilot first.</td></tr>
+    <tr><td><code>manifest hash</code> mismatch</td><td>A file covered by the manifest was edited by hand. Use <code>npx harness upgrade &lt;path&gt; --apply</code>, or scaffold again with <code>--force</code>.</td></tr>
+    <tr><td><code>harness sign</code> asks for <code>WITNESS_SIGNING_KEY</code></td><td>Only needed for signed releases. Set a 64-hex-character key that you keep secret.</td></tr>
+    <tr><td>Need help from maintainers</td><td>Run <code>npx harness diag ../my-bot --bundle &gt; bundle.json</code> and attach the file. Secrets are removed from it.</td></tr>
+  </table></div>
+  <h3>Known limits of this slim copy</h3>
+  <ul>
+    <li>Only the Copilot host is included.</li>
+    <li><code>metaharness learn</code> is not available.</li>
+    <li>The WebAssembly kernel reports version <code>0.1.0</code>, while the package is <code>0.1.8</code>. This comes from upstream and is harmless.</li>
+    <li>Darwin Mode (<code>@metaharness/darwin</code>) still comes from npm.</li>
+  </ul>
+</section>
+
+<footer>
+  Based on <a href="https://github.com/ruvnet/metaharness">ruvnet/metaharness</a> (MIT), commit <code>2471c03</code>.
+  Copilot design: <code>docs/adrs/ADR-032-host-copilot.md</code>. Agent guide: <a href="copilot-harness-agent-guide.md">copilot-harness-agent-guide.md</a>.
+</footer>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.cmd').forEach(function(box){
+    var pre=box.querySelector('pre');var b=document.createElement('button');
+    b.type='button';b.textContent='Copy';
+    b.addEventListener('click',function(){
+      var t=pre.innerText;
+      var done=function(){b.textContent='Copied';setTimeout(function(){b.textContent='Copy'},1200)};
+      if(navigator.clipboard){navigator.clipboard.writeText(t).then(done,function(){})}
+    });
+    box.appendChild(b);
+  });
+  var root=document.documentElement;
+  try{var s=localStorage.getItem('theme');if(s)root.setAttribute('data-theme',s)}catch(e){}
+  document.getElementById('themeBtn').addEventListener('click',function(){
+    var cur=root.getAttribute('data-theme')||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');
+    var next=cur==='dark'?'light':'dark';root.setAttribute('data-theme',next);
+    try{localStorage.setItem('theme',next)}catch(e){}
+  });
+})();
+</script>
+</body>
+</html>
