@@ -17,3 +17,5 @@
 .claude-flow/metrics/
 .swarm/ewc-fisher.json
 .swarm/backups/
+.claude-flow/mods/session.json
+.claude-flow/protector-mod/
