@@ -405,10 +405,50 @@
         "policyHash": "sha256:00b63b2f746eb8b9095bbd5e1dbae4ddd74fd92a6740b72f59f4069fbfda4737"
       },
       "hash": "sha256:1ea727a140181653f15345429c3bafea1e5767557d7a7971abc1f13a99c046c0"
+    },
+    {
+      "payload": {
+        "receiptId": "sha256:1d2cfe0514ffeb8cc6f2b84e15ddc70715cf37d59217d320cb65b218261e31e0",
+        "previousReceiptHash": "sha256:1ea727a140181653f15345429c3bafea1e5767557d7a7971abc1f13a99c046c0",
+        "sequence": 10,
+        "issuedAt": 1795404827121,
+        "request": {
+          "identity": {
+            "id": "legacy-cli",
+            "type": "legacy"
+          },
+          "action": {
+            "type": "mcp.tool.call",
+            "resource": "hooks_intelligence_verified-ingest",
+            "tool": "hooks_intelligence_verified-ingest",
+            "server": "ruflo",
+            "network": false,
+            "destructive": false
+          },
+          "context": {
+            "metadata": {
+              "inputDigest": "sha256:b72ed13cb525af2592de7b88e763277fa14592edc468666510c59a8cf02dd505"
+            },
+            "now": 1795404827121
+          },
+          "requestId": "47a4c13b-99d1-499c-a274-7c67792dd0e4"
+        },
+        "decision": {
+          "requestId": "47a4c13b-99d1-499c-a274-7c67792dd0e4",
+          "outcome": "allowed",
+          "enforcedOutcome": "allowed",
+          "mode": "legacy",
+          "reason": "legacy-default-allow",
+          "matchedRules": [],
+          "obligations": []
+        },
+        "policyHash": "sha256:00b63b2f746eb8b9095bbd5e1dbae4ddd74fd92a6740b72f59f4069fbfda4737"
+      },
+      "hash": "sha256:e5b1d3fa990df4bacb5f63fac78a9efbbb3c2417e38af27486dc1800f81c750e"
     }
   ],
   "migratedAt": 1795396076001,
   "migratedFrom": "pre-ADR-324; capabilities=.swarm/memory.db",
-  "ledgerLength": 10,
-  "ledgerHead": "sha256:1ea727a140181653f15345429c3bafea1e5767557d7a7971abc1f13a99c046c0"
+  "ledgerLength": 11,
+  "ledgerHead": "sha256:e5b1d3fa990df4bacb5f63fac78a9efbbb3c2417e38af27486dc1800f81c750e"
 }
