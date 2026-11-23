@@ -7,3 +7,11 @@
 .claude-flow/sessions/
 .swarm/*.db
 .swarm/*.ruvector
+.swarm/*.db-shm
+.swarm/*.db-wal
+.swarm/state.json
+.claude-flow/daemon.pid
+.claude-flow/daemon.log
+.claude-flow/daemon-state.json
+.claude-flow/swarm/
+.claude-flow/metrics/
