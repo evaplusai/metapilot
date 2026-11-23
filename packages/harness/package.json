@@ -1,0 +1,57 @@
+{
+  "name": "@metaharness/harness",
+  "version": "0.2.1",
+  "description": "Deterministic control plane for agents: wraps any model, tool or skill as a replaceable worker behind utility scoring, four safety gates, hash-chained receipts and circuit-breaker recovery.",
+  "homepage": "https://ruv.io",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ruvnet/metaharness.git",
+    "directory": "packages/harness"
+  },
+  "bugs": {
+    "url": "https://github.com/ruvnet/metaharness/issues"
+  },
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist/**",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "lint": "tsc --noEmit"
+  },
+  "keywords": [
+    "metaharness",
+    "agent-harness",
+    "control-plane",
+    "ai-agent",
+    "receipts",
+    "verification",
+    "circuit-breaker",
+    "contextual-bandit",
+    "governance",
+    "agent-safety"
+  ],
+  "author": "rUv <ruv@ruv.net>",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "vitest": "^4.1.12"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

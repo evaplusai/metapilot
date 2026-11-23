@@ -1,0 +1,21 @@
+{
+  "name": "ruflo-kernel-wasm",
+  "collaborators": [
+    "rUv <ruv@ruv.net>"
+  ],
+  "description": "WebAssembly bindings for ruflo-kernel",
+  "version": "0.1.0",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ruvnet/agent-harness-generator"
+  },
+  "files": [
+    "ruflo_kernel_wasm_bg.wasm",
+    "ruflo_kernel_wasm.js",
+    "ruflo_kernel_wasm.d.ts"
+  ],
+  "main": "ruflo_kernel_wasm.js",
+  "types": "ruflo_kernel_wasm.d.ts",
+  "type": "commonjs"
+}

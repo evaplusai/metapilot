@@ -1,3 +1,57 @@
+node_modules/
+dist/
+*.tgz
+.npm-cache/
+*.log
+.pnpm-store/
+
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Darwin nightly service-account key — NEVER commit (stored in GCP Secret Manager as DARWIN_SA_KEY)
+.config/darwin-nightly-sa.json
+*-sa.json
+darwin-nightly-sa.json
+
+coverage/
+*.lcov
+.nyc_output/
+
+.harness/cache/
+.gist-staging/
+
+# Darwin Mode (ADR-070) evolution work tree — transient run artifacts
+.metaharness/
+
+# DRACO transient run output (the committed baseline is runs/baseline-mock.json)
+packages/bench/draco-current.json
+
+# Runtime artifacts from ruflo / claude-flow tooling (not source)
+**/ruvector.db
+ruvector.db
+**/agentdb.rvf
+**/agentdb.rvf.lock
+**/agentdb.rvf.idmap.json
+
+# Python bytecode (e.g. fuzz fixture compilation)
+__pycache__/
+*.pyc
+.swarm/
+packages/darwin-mode/bench/ruvector/data/
+# transient live-run scratch: cloned runner dir + flywheel checkpoints (never committed)
+packages/evals-math/bench-paid/
+packages/evals-math/bench/*.partial.json
+
+# --- ruflo runtime (metapilot) ---
 # Ruflo local secrets and runtime data
 .env
 .env.local
@@ -19,3 +73,4 @@
 .swarm/backups/
 .claude-flow/mods/session.json
 .claude-flow/protector-mod/
+.claude-flow/missions/

@@ -1,0 +1,41 @@
+{
+  "name": "metaharness-copilot-slim",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Slim, Copilot-host-only copy of ruvnet/metaharness (workspace root)",
+  "homepage": "https://github.com/ruvnet/metaharness",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ruvnet/metaharness.git"
+  },
+  "license": "MIT",
+  "keywords": [
+    "pi-package",
+    "agent-harness",
+    "scaffolding",
+    "mcp"
+  ],
+  "author": "rUv <ruv@ruv.net>",
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "node scripts/build-ordered.mjs",
+    "test": "npm run -ws --if-present test",
+    "lint": "npm run -ws --if-present lint",
+    "pretest": "npm run build"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.4.0",
+    "vitest": "^4.1.12"
+  },
+  "overrides": {
+    "glob": "^14.0.2",
+    "minimatch": "^11.0.1"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

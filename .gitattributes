@@ -1,0 +1,10 @@
+# DRACO corpus is checksum-pinned (packages/bench/__tests__/draco-corpus.test.ts).
+# Force LF so the bytes — and the SHA — are identical on every platform.
+packages/bench/draco/corpus.json text eol=lf
+
+# Golden output is a byte-for-byte contract and must not be rewritten to CRLF.
+packages/host-prime-agent/__tests__/golden/default-spec.json text eol=lf
+packages/kernel-js/__tests__/fixtures/*.jsonl text eol=lf
+
+# artex-defense manifests pin each fixture by SHA-256; CRLF checkout would break the digest.
+packages/artex-defense/fixtures/* text eol=lf

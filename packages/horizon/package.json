@@ -1,0 +1,59 @@
+{
+  "name": "@metaharness/horizon",
+  "version": "0.2.2",
+  "description": "Deterministic long-horizon agent control: Rust/WASM halt and command guards, real tool-execution receipts, full checkpoints, and flush-before-compaction.",
+  "homepage": "https://ruv.io",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ruvnet/metaharness.git",
+    "directory": "packages/horizon"
+  },
+  "bugs": {
+    "url": "https://github.com/ruvnet/metaharness/issues"
+  },
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "wasm",
+    "README.md"
+  ],
+  "metaharness": {
+    "wasmArtifacts": [
+      "wasm/horizon_core.wasm"
+    ]
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "demo": "node scripts/demo.mjs",
+    "lint": "tsc --noEmit"
+  },
+  "keywords": [
+    "metaharness",
+    "long-horizon",
+    "halt-controller",
+    "command-guard",
+    "context-compaction",
+    "checkpoints",
+    "wasm-sandbox",
+    "agent-harness",
+    "receipts"
+  ],
+  "license": "Apache-2.0",
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.4.0",
+    "vitest": "^4.1.12"
+  }
+}

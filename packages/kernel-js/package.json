@@ -1,0 +1,106 @@
+{
+  "name": "@metaharness/kernel",
+  "version": "0.1.8",
+  "description": "Cross-platform kernel for MetaHarness harnesses: the HarnessSpec and HostAdapter contract, memory backends, and a WASM-first runtime with NAPI-RS native and pure-JS fallbacks.",
+  "homepage": "https://ruv.io",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ruvnet/metaharness.git",
+    "directory": "packages/kernel-js"
+  },
+  "bugs": {
+    "url": "https://github.com/ruvnet/metaharness/issues"
+  },
+  "license": "MIT",
+  "author": "rUv <ruv@ruv.net>",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./memory": {
+      "types": "./dist/memory.d.ts",
+      "import": "./dist/memory.js"
+    },
+    "./memory-rvf": {
+      "types": "./dist/memory-rvf.d.ts",
+      "import": "./dist/memory-rvf.js"
+    },
+    "./dispatch": {
+      "types": "./dist/dispatch.d.ts",
+      "import": "./dist/dispatch.js"
+    }
+  },
+  "files": [
+    "dist/**",
+    "pkg/**",
+    "README.md",
+    "LICENSE"
+  ],
+  "metaharness": {
+    "wasmArtifacts": [
+      "pkg/package.json",
+      "pkg/ruflo_kernel_wasm.js",
+      "pkg/ruflo_kernel_wasm_bg.wasm"
+    ]
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "lint": "tsc --noEmit"
+  },
+  "keywords": [
+    "metaharness",
+    "agent-harness",
+    "kernel",
+    "wasm",
+    "napi-rs",
+    "mcp",
+    "host-adapter",
+    "agent-memory",
+    "rvf"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@ruvector/emergent-time": "^0.1.0"
+  },
+  "peerDependencies": {
+    "@ruvector/rvf": "^0.3.0 || ^0.4.7",
+    "@metaharness/kernel-darwin-arm64": "0.1.0",
+    "@metaharness/kernel-darwin-x64": "0.1.0",
+    "@metaharness/kernel-linux-x64-gnu": "0.1.0",
+    "@metaharness/kernel-linux-arm64-gnu": "0.1.0",
+    "@metaharness/kernel-win32-x64-msvc": "0.1.0"
+  },
+  "peerDependenciesMeta": {
+    "@ruvector/rvf": {
+      "optional": true
+    },
+    "@metaharness/kernel-darwin-arm64": {
+      "optional": true
+    },
+    "@metaharness/kernel-darwin-x64": {
+      "optional": true
+    },
+    "@metaharness/kernel-linux-x64-gnu": {
+      "optional": true
+    },
+    "@metaharness/kernel-linux-arm64-gnu": {
+      "optional": true
+    },
+    "@metaharness/kernel-win32-x64-msvc": {
+      "optional": true
+    }
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "devDependencies": {
+    "@ruvector/rvf": "^0.4.7"
+  }
+}

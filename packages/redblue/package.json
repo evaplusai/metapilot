@@ -1,0 +1,80 @@
+{
+  "name": "@metaharness/redblue",
+  "version": "0.1.8",
+  "description": "AI red-teaming for agents and LLM apps you own: prompt injection, tool misuse, data leakage and jailbreak tests, auto-patch, retest, report, plus defense replay. No live targets.",
+  "homepage": "https://ruv.io",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ruvnet/metaharness.git",
+    "directory": "packages/redblue"
+  },
+  "bugs": {
+    "url": "https://github.com/ruvnet/metaharness/issues"
+  },
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "metaharness-redblue": "./dist/cli/index.js",
+    "redblue": "./dist/cli/index.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./cli": {
+      "types": "./dist/cli/index.d.ts",
+      "import": "./dist/cli/index.js"
+    }
+  },
+  "files": [
+    "dist/**",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "lint": "tsc --noEmit"
+  },
+  "keywords": [
+    "metaharness",
+    "red-team",
+    "blue-team",
+    "ai-red-teaming",
+    "llm-security",
+    "agent-security",
+    "prompt-injection",
+    "jailbreak",
+    "excessive-agency",
+    "data-leakage",
+    "owasp-llm",
+    "nist-ai-rmf",
+    "security-testing",
+    "llm-evaluation",
+    "ai-safety",
+    "agent-harness",
+    "blue-team-defense",
+    "artex",
+    "detection-engineering",
+    "incident-response",
+    "evidence-replay",
+    "tamper-evident"
+  ],
+  "author": "rUv <ruv@ruv.net>",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "@metaharness/artex-defense": "0.1.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "vitest": "^4.1.12"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

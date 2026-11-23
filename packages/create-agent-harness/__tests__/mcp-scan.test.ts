@@ -1,0 +1,371 @@
+// SPDX-License-Identifier: MIT
+//
+// Tests the MCP security scanner against a generated-style harness tree.
+
+import { describe, it, expect } from 'vitest';
+import { mkdtemp, mkdir, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { scanMcp, mcpScanCmd, envSecretGuarded } from '../src/mcp-scan.js';
+
+async function makeHarness(opts: {
+  policy?: Record<string, unknown> | null;
+  allow?: string[];
+  deny?: string[];
+  servers?: Record<string, unknown>;
+  deps?: Record<string, string>;
+}): Promise<string> {
+  const dir = await mkdtemp(join(tmpdir(), 'mcp-scan-'));
+  await mkdir(join(dir, '.harness'), { recursive: true });
+  await mkdir(join(dir, '.claude'), { recursive: true });
+  if (opts.policy !== null) {
+    await writeFile(join(dir, '.harness', 'mcp-policy.json'), JSON.stringify(opts.policy ?? {}), 'utf-8');
+  }
+  await writeFile(
+    join(dir, '.claude', 'settings.json'),
+    JSON.stringify({
+      permissions: { allow: opts.allow ?? [], deny: opts.deny ?? ['Read(./.env)'] },
+      mcpServers: opts.servers ?? { bot: { command: 'npx' } },
+    }),
+    'utf-8',
+  );
+  await writeFile(join(dir, 'package.json'), JSON.stringify({ name: 'bot', dependencies: opts.deps ?? {} }), 'utf-8');
+  return dir;
+}
+
+const SAFE = {
+  defaultDeny: true,
+  allowNetwork: false,
+  allowShell: false,
+  allowFileWrite: false,
+  requireApprovalForDangerous: true,
+  toolTimeoutMs: 30000,
+  maxToolCallsPerTurn: 8,
+  auditLog: true,
+};
+
+describe('scanMcp', () => {
+  it('passes a safe default-deny harness', async () => {
+    const dir = await makeHarness({ policy: SAFE, allow: ['mcp__bot__*'], deps: { '@metaharness/kernel': '0.1.0' } });
+    const r = scanMcp(dir);
+    expect(r.mcpEnabled).toBe(true);
+    expect(r.worst).toBe('info');
+    expect(r.findings.some((f) => f.id === 'clean')).toBe(true);
+  });
+
+  it('flags an MCP server with no policy as HIGH', async () => {
+    const dir = await makeHarness({ policy: null, allow: ['mcp__bot__*'] });
+    const r = scanMcp(dir);
+    expect(r.worst).toBe('high');
+    expect(r.findings.some((f) => f.id === 'no-policy')).toBe(true);
+  });
+
+  it('flags shell access, missing default-deny, and wildcard perms', async () => {
+    const dir = await makeHarness({
+      policy: { ...SAFE, defaultDeny: false, allowShell: true },
+      allow: ['mcp__*__*'],
+    });
+    const r = scanMcp(dir);
+    const ids = r.findings.map((f) => f.id);
+    expect(ids).toContain('no-default-deny');
+    expect(ids).toContain('allow-shell');
+    expect(ids).toContain('wildcard-tool-perm');
+    expect(r.worst).toBe('high');
+  });
+
+  it('flags missing audit/timeout, secret exposure, and unpinned deps', async () => {
+    const dir = await makeHarness({
+      policy: { ...SAFE, auditLog: false, toolTimeoutMs: 0 },
+      deny: [],
+      deps: { 'left-pad': '^1.0.0', 'is-odd': 'latest' },
+    });
+    const r = scanMcp(dir);
+    const ids = r.findings.map((f) => f.id);
+    expect(ids).toContain('no-audit-log');
+    expect(ids).toContain('no-timeout');
+    expect(ids).toContain('no-secret-guard');
+    expect(ids).toContain('unpinned-deps');
+    expect(r.worst).toBe('medium');
+  });
+
+  it('does NOT treat a deny rule for the .env.example template as guarding the real .env', async () => {
+    // Read(./.env.example) denies only the harmless, commonly-committed
+    // template file — it does nothing to stop a tool reading the real
+    // .env/.env.local via a broad Read(*) grant. The old unanchored
+    // /\.env/ substring test treated any ".env"-containing deny entry as
+    // sufficient and missed this.
+    const dir = await makeHarness({
+      policy: SAFE,
+      allow: ['mcp__bot__*'],
+      deny: ['Read(./.env.example)'],
+    });
+    const r = scanMcp(dir);
+    expect(r.findings.some((f) => f.id === 'no-secret-guard')).toBe(true);
+  });
+
+  it('does not confuse .env.local/.env.sample-only deny rules for a real guard, but still recognizes the generator\'s own patterns', () => {
+    expect(envSecretGuarded(['Read(./.env.example)'])).toBe(false);
+    expect(envSecretGuarded(['Read(./.env.sample)'])).toBe(false);
+    expect(envSecretGuarded(['Read(./.env.local)'])).toBe(false);
+    expect(envSecretGuarded([])).toBe(false);
+    expect(envSecretGuarded(['Read(./.env)'])).toBe(true);
+    // `.env.*` is a glob that requires a dot after "env" — it cannot match the
+    // bare `.env`, so on its own it does not guard the real secrets file.
+    expect(envSecretGuarded(['Read(./.env.*)'])).toBe(false);
+    expect(envSecretGuarded(['Read(./.env)', 'Read(./.env.*)'])).toBe(true);
+    expect(envSecretGuarded(['.env'])).toBe(true);
+    expect(envSecretGuarded(['**/.env'])).toBe(true);
+    // Independent-critic-caught gap: an unrelated file that merely *ends* in
+    // ".env" (not the harness's real .env at a path boundary) must not count
+    // as guarding it either — a narrower version of the same false-"guarded"
+    // bug this fix closes.
+    expect(envSecretGuarded(['Read(./secrets.env)'])).toBe(false);
+    expect(envSecretGuarded(['Read(./myapp.env)'])).toBe(false);
+    expect(envSecretGuarded(['Read(.env)'])).toBe(true);
+  });
+
+  it('evaluates deny rules as Read globs against the root .env, not as substrings', () => {
+    // Shapes that DO block a read of the root .env.
+    for (const rule of ['Read(./.env)', 'Read(.env)', 'Read(**/.env)', 'Read(./.env*)', 'Read(/.env)', 'Read( ./.env )', 'Read(*)', 'Read(**)', 'Read']) {
+      expect(envSecretGuarded([rule]), rule).toBe(true);
+    }
+    // Shapes that mention .env but leave the root .env readable.
+    for (const rule of [
+      'Read(./.env.*)',
+      'Read(**/.env.*)',
+      'Read(./.envrc)',
+      'Read(./.env/**)',
+      'Read(./sub/.env)',
+      'Read(./.ENV)',
+      'Read(./foo.env.bak)',
+      'Edit(./.env)',
+      'Write(./.env)',
+      'Bash(cat ./.env)',
+      'WebFetch(domain:example.com/.env)',
+    ]) {
+      expect(envSecretGuarded([rule]), rule).toBe(false);
+    }
+    expect(envSecretGuarded(undefined)).toBe(false);
+    expect(envSecretGuarded([42, null])).toBe(false);
+  });
+
+  it('every generator template deny list still counts as guarding .env (zero regression)', async () => {
+    const { readdir, readFile } = await import('node:fs/promises');
+    const tdir = join(__dirname, '..', 'templates');
+    const found: string[] = [];
+    for (const t of await readdir(tdir)) {
+      const p = join(tdir, t, '.claude', 'settings.json.tmpl');
+      let raw: string;
+      try { raw = await readFile(p, 'utf8'); } catch { continue; }
+      const deny = (raw.match(/"deny"\s*:\s*\[[^\]]*\]/)?.[0] ?? '').match(/"[^"]*"/g)?.slice(1).map((s) => JSON.parse(s)) ?? [];
+      if (deny.some((d: string) => d.includes('.env'))) {
+        found.push(t);
+        expect(envSecretGuarded(deny), t).toBe(true);
+      }
+    }
+    expect(found.length).toBeGreaterThan(5);
+  });
+
+  it('reports nothing to scan when MCP is absent', async () => {
+    const dir = await makeHarness({ policy: null, servers: {} });
+    const r = scanMcp(dir);
+    expect(r.mcpEnabled).toBe(false);
+  });
+
+  // GH #209: neither wildcard-tool-perm (checks literal '*', not 'Bash(*)') nor risky-bash-allow
+  // (regex alternation was rm|curl|wget|sudo|chmod|ssh — no '*') ever matched a fully unscoped Bash
+  // allow-rule. No shipped generator currently writes exactly 'Bash(*)'/'Bash' into .claude/settings
+  // .json (verified: web-ui's claudeSettings() hardcodes a scoped Bash(npx <name>*); host-config.ts's
+  // 'Bash(*)' push reaches only non-claude-code config shapes mcp-scan doesn't read) — this closes
+  // the config-shape blind spot as defense-in-depth, not as a report of a live generator bug.
+  it("flags 'Bash(*)' as unrestricted-bash-allow HIGH even when mcp-policy.json's allowShell is false", async () => {
+    const dir = await makeHarness({
+      policy: SAFE, // allowShell: false — this finding must come from the allow-rule itself
+      allow: ['Bash(*)'],
+      deps: { '@metaharness/kernel': '0.1.0' },
+    });
+    const r = scanMcp(dir);
+    const ids = r.findings.map((f) => f.id);
+    expect(ids).toContain('unrestricted-bash-allow');
+    expect(r.findings.find((f) => f.id === 'unrestricted-bash-allow')?.severity).toBe('high');
+    expect(r.worst).toBe('high');
+    expect(mcpScanCmd([dir]).code).toBe(1);
+  });
+
+  it("flags bare 'Bash' (no matcher) as unrestricted-bash-allow HIGH", async () => {
+    const dir = await makeHarness({
+      policy: SAFE,
+      allow: ['Bash'],
+      deps: { '@metaharness/kernel': '0.1.0' },
+    });
+    const r = scanMcp(dir);
+    expect(r.findings.map((f) => f.id)).toContain('unrestricted-bash-allow');
+    expect(r.worst).toBe('high');
+  });
+
+  it("does not conflate 'Bash(*)' with the narrower risky-bash-allow rule", async () => {
+    const dir = await makeHarness({ policy: SAFE, allow: ['Bash(*)'], deps: { '@metaharness/kernel': '0.1.0' } });
+    const r = scanMcp(dir);
+    expect(r.findings.map((f) => f.id)).not.toContain('risky-bash-allow');
+  });
+
+  // GH #209: unlike 'Bash(*)' above, this one IS live today — a real `metaharness --template
+  // vertical:ai` scaffold ships 'Bash(python *)' in its .claude/settings.json (see templates/
+  // vertical_ai/.claude/settings.json.tmpl). python/node/ruby/perl/bash/sh are arbitrary-code-
+  // execution interpreters, same risk class as the rm/curl/sudo list, but were absent from the
+  // regex's binary alternation, so the shipped pattern was previously unflagged by any check.
+  it("flags 'Bash(python *)' (the exact pattern vertical:ai's own template ships) as risky-bash-allow", async () => {
+    const dir = await makeHarness({ policy: SAFE, allow: ['Bash(python *)'], deps: { '@metaharness/kernel': '0.1.0' } });
+    const r = scanMcp(dir);
+    const ids = r.findings.map((f) => f.id);
+    expect(ids).toContain('risky-bash-allow');
+    expect(r.findings.find((f) => f.id === 'risky-bash-allow')?.severity).toBe('medium');
+  });
+
+  it("flags unscoped 'Bash(node -e *)' and 'Bash(ruby *)' as risky-bash-allow too", async () => {
+    for (const rule of ['Bash(node -e *)', 'Bash(ruby *)', 'Bash(perl *)', 'Bash(sh *)']) {
+      const dir = await makeHarness({ policy: SAFE, allow: [rule], deps: { '@metaharness/kernel': '0.1.0' } });
+      const r = scanMcp(dir);
+      expect(r.findings.map((f) => f.id), `expected ${rule} to be flagged`).toContain('risky-bash-allow');
+    }
+  });
+});
+
+// GH #4 (mutation finding): the CI security gate blocks (exit 1) iff a HIGH finding is present, so a
+// mutation that downgrades a HIGH rule to MEDIUM silently flips the gate to pass. The existing tests
+// assert finding IDs + the aggregate `worst`, which misses such a downgrade whenever another HIGH
+// finding co-occurs (e.g. the "flags shell access" case has three HIGHs). These pin each security-
+// critical rule's OWN severity and prove that each HIGH condition ALONE still blocks the gate.
+describe('per-finding HIGH severity is pinned (mutation guard — GH #4)', () => {
+  it('allow-shell ALONE is HIGH and blocks the gate (exit 1)', async () => {
+    // Same clean setup as "passes a safe default-deny harness" (worst=info) but with allowShell:true,
+    // so allow-shell is the SOLE non-info finding — its downgrade can't hide behind another HIGH.
+    const dir = await makeHarness({
+      policy: { ...SAFE, allowShell: true },
+      allow: ['mcp__bot__*'],
+      deps: { '@metaharness/kernel': '0.1.0' },
+    });
+    const r = scanMcp(dir);
+    const nonInfo = r.findings.filter((f) => f.severity !== 'info');
+    expect(nonInfo.map((f) => f.id)).toEqual(['allow-shell']);
+    expect(nonInfo[0].severity).toBe('high');   // kills the allow-shell HIGH→MEDIUM mutant
+    expect(r.worst).toBe('high');
+    expect(mcpScanCmd([dir]).code).toBe(1);      // kills the gate exit 1→0 flip
+  });
+
+  it('each security-critical rule keeps its HIGH severity', async () => {
+    const noPolicy = scanMcp(await makeHarness({ policy: null, allow: ['mcp__bot__*'] }));
+    expect(noPolicy.findings.find((f) => f.id === 'no-policy')?.severity).toBe('high');
+
+    const bad = scanMcp(await makeHarness({
+      policy: { ...SAFE, defaultDeny: false },
+      allow: ['mcp__*__*'],
+      deps: { '@metaharness/kernel': '0.1.0' },
+    }));
+    expect(bad.findings.find((f) => f.id === 'no-default-deny')?.severity).toBe('high');
+    expect(bad.findings.find((f) => f.id === 'wildcard-tool-perm')?.severity).toBe('high');
+  });
+});
+
+describe('mcpScanCmd', () => {
+  it('exits 1 on a HIGH finding and 0 on a clean harness', async () => {
+    const bad = await makeHarness({ policy: null, allow: ['mcp__bot__*'] });
+    expect(mcpScanCmd([bad]).code).toBe(1);
+
+    const good = await makeHarness({ policy: SAFE, allow: ['mcp__bot__*'], deps: { '@metaharness/kernel': '0.1.0' } });
+    const r = mcpScanCmd([good]);
+    expect(r.code).toBe(0);
+    expect(r.lines.join('\n')).toContain('Result: INFO');
+  });
+
+  // Regression for issue #16: --json must emit the structured report (findings[])
+  // instead of text, so downstream code can diff findings across runs.
+  it('emits structured JSON with findings[] when --json is passed', async () => {
+    const bad = await makeHarness({ policy: null, allow: ['mcp__bot__*'] });
+    const r = mcpScanCmd([bad, '--json']);
+    const parsed = JSON.parse(r.lines.join('\n'));
+    expect(Array.isArray(parsed.findings)).toBe(true);
+    expect(parsed.findings.length).toBeGreaterThan(0);
+    expect(r.code).toBe(1);
+    // text mode (no --json) must remain non-JSON
+    expect(() => JSON.parse(mcpScanCmd([bad]).lines.join('\n'))).toThrow();
+  });
+
+  it('resolves the scan path even when --json precedes it', async () => {
+    const good = await makeHarness({ policy: SAFE, allow: ['mcp__bot__*'], deps: { '@metaharness/kernel': '0.1.0' } });
+    const r = mcpScanCmd(['--json', good]);
+    const parsed = JSON.parse(r.lines.join('\n'));
+    expect(parsed.dir).toBe(good);
+  });
+});
+
+// Regression: a directory registering MCP only via a top-level `.mcp.json`
+// (no .harness/mcp-policy.json, no .claude/settings.json mcpServers) must
+// still be detected as MCP-in-use. `.mcp.json` is a primary, actively-read
+// MCP signal elsewhere in this codebase (score.ts's hasMcp, eject.ts,
+// analyze-repo.ts) — scanMcp() previously ignored it entirely, which
+// threat-model.ts's own fix (reusing scanMcp's mcpEnabled as its single
+// source of truth) would otherwise have silently inherited as a new
+// false-negative for this config surface. Uses raw fs calls rather than
+// makeHarness() because that helper always writes .claude/settings.json.
+describe('scanMcp — .mcp.json as an independent MCP-in-use signal', () => {
+  it('detects MCP as enabled from .mcp.json alone', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'mcp-scan-mcpjson-'));
+    await writeFile(join(dir, '.mcp.json'), JSON.stringify({ mcpServers: { bot: { command: 'npx' } } }), 'utf-8');
+    const r = scanMcp(dir);
+    expect(r.mcpEnabled).toBe(true);
+    expect(r.findings.some((f) => f.id === 'mcp-disabled')).toBe(false);
+  });
+
+  it('stays disabled when no policy, no .mcp.json, and empty mcpServers', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'mcp-scan-mcpjson-'));
+    await mkdir(join(dir, '.claude'), { recursive: true });
+    await writeFile(join(dir, '.claude', 'settings.json'), JSON.stringify({ mcpServers: {} }), 'utf-8');
+    const r = scanMcp(dir);
+    expect(r.mcpEnabled).toBe(false);
+    expect(r.findings.some((f) => f.id === 'mcp-disabled')).toBe(true);
+  });
+
+  it('duplicate/conflicting registration across all 3 surfaces at once: findings are additive, neither surface suppresses the other, and the result is deterministic', async () => {
+    // A harness that registers MCP three times over (policy file + .mcp.json
+    // + settings.mcpServers — redundant but not invalid) with directly
+    // conflicting governance signals: .harness/mcp-policy.json is fully
+    // compliant (SAFE-shaped), while .claude/settings.json separately grants
+    // an unrestricted 'Bash(*)' allow-rule and denies nothing for .env. There
+    // is no "which surface wins" question here by design (see mcp-scan.ts's
+    // comment above `mcpEnabled`) — both the policy's cleanliness and the
+    // settings' real risk must be visible in the same report.
+    const dir = await mkdtemp(join(tmpdir(), 'mcp-scan-conflict-'));
+    await mkdir(join(dir, '.harness'), { recursive: true });
+    await mkdir(join(dir, '.claude'), { recursive: true });
+    await writeFile(join(dir, '.harness', 'mcp-policy.json'), JSON.stringify(SAFE), 'utf-8');
+    await writeFile(join(dir, '.mcp.json'), JSON.stringify({ mcpServers: { other: { command: 'npx' } } }), 'utf-8');
+    await writeFile(
+      join(dir, '.claude', 'settings.json'),
+      JSON.stringify({
+        permissions: { allow: ['Bash(*)'], deny: [] },
+        mcpServers: { bot: { command: 'npx' } },
+      }),
+      'utf-8',
+    );
+    await writeFile(join(dir, 'package.json'), JSON.stringify({ name: 'bot', dependencies: {} }), 'utf-8');
+
+    const r = scanMcp(dir);
+    expect(r.mcpEnabled).toBe(true);
+    // The compliant policy must NOT suppress the real settings-derived risk.
+    expect(r.findings.some((f) => f.id === 'unrestricted-bash-allow')).toBe(true);
+    // The risky settings must NOT make the tool claim there's no policy —
+    // a compliant policy file is genuinely present.
+    expect(r.findings.some((f) => f.id === 'no-policy')).toBe(false);
+    expect(r.findings.some((f) => f.id === 'no-default-deny')).toBe(false);
+    // The settings.deny=[] (no .env guard) finding must also independently
+    // surface — none of the 3 registration surfaces masks another's checks.
+    expect(r.findings.some((f) => f.id === 'no-secret-guard')).toBe(true);
+    expect(r.worst).toBe('high');
+
+    // Deterministic: re-scanning the identical fixture is order-stable and
+    // produces the exact same finding set, not just the same count.
+    const r2 = scanMcp(dir);
+    expect(r2.findings.map((f) => f.id)).toEqual(r.findings.map((f) => f.id));
+  });
+});
